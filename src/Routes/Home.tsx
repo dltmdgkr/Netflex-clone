@@ -2,7 +2,7 @@ import { useQuery } from "react-query";
 import { IGetMoviesResult, getMovies } from "../api";
 import styled from "styled-components";
 import { makeImagePath } from "../utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll } from "framer-motion";
 import { useState } from "react";
 import { useMatch, useNavigate } from "react-router-dom";
 
@@ -43,6 +43,14 @@ const Slider = styled.div`
   top: -100px;
 `;
 
+const Overlay = styled(motion.div)`
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+`;
+
 const Row = styled(motion.div)`
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -78,6 +86,28 @@ const Info = styled(motion.div)`
     text-align: center;
     font-size: 18px;
   }
+`;
+
+const BigMovie = styled(motion.div)`
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 40vw;
+  height: 80vh;
+  color: white;
+  background-color: ${(props) => props.theme.black.lighter};
+`;
+
+const BigImage = styled.div`
+  background-size: cover;
+  background-position: center center;
+  width: 100%;
+  height: 400px;
+`;
+
+const BigTitle = styled.h3`
+  color: ${(props) => props.theme.lighter};
 `;
 
 const rowVariants = {
@@ -123,12 +153,15 @@ const offset = 6;
 function Home() {
   const navigate = useNavigate();
   const bigMovieMatch = useMatch("movies/:movieId");
+  const { scrollY } = useScroll();
+  const [index, setIndex] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+
   const { data, isLoading } = useQuery<IGetMoviesResult>(
     ["movies", "nowPlaying"],
     getMovies
   );
-  const [index, setIndex] = useState(0);
-  const [leaving, setLeaving] = useState(false);
+
   const increaseIndex = () => {
     if (data) {
       if (leaving) return;
@@ -140,10 +173,23 @@ function Home() {
       });
     }
   };
+
   const toggleLeaving = () => setLeaving((prev) => !prev);
+
   const onBoxClicked = (moiveId: number) => {
     navigate(`movies/${moiveId}`);
   };
+
+  const onOverlayClick = () => {
+    navigate("/");
+  };
+
+  const clickedMovie =
+    bigMovieMatch?.params.movieId &&
+    data?.results.find(
+      (movie) => String(movie.id) === bigMovieMatch?.params.movieId
+    );
+  console.log(clickedMovie);
   return (
     <Wrapper>
       {isLoading ? (
@@ -191,19 +237,27 @@ function Home() {
           </Slider>
           <AnimatePresence>
             {bigMovieMatch ? (
-              <motion.div
-                layoutId={bigMovieMatch.params.movieId}
-                style={{
-                  position: "absolute",
-                  top: 50,
-                  left: 0,
-                  right: 0,
-                  margin: "0 auto",
-                  backgroundColor: "red",
-                  width: "40vw",
-                  height: "80vh",
-                }}
-              />
+              <>
+                <Overlay onClick={onOverlayClick} exit={{ opacity: 0 }} />
+                <BigMovie
+                  style={{ top: scrollY.get() + 100 }}
+                  layoutId={bigMovieMatch.params.movieId}
+                >
+                  {clickedMovie && (
+                    <>
+                      <BigImage
+                        style={{
+                          backgroundImage: `url(${makeImagePath(
+                            clickedMovie.backdrop_path,
+                            "w500"
+                          )})`,
+                        }}
+                      />
+                      <BigTitle>{clickedMovie.title}</BigTitle>
+                    </>
+                  )}
+                </BigMovie>
+              </>
             ) : null}
           </AnimatePresence>
         </>
